@@ -8,7 +8,7 @@ This script is based on [Migvill's enpass-to-csv](https://github.com/migvill/enp
 ## Requirements
 * Node.js
 * Enpass 6
-* Optional: 1password or dashlane
+* Optional: 1password
 
 ## Installation
 1. Open your CLI and navigate to the downloaded folder
@@ -20,9 +20,13 @@ This script is based on [Migvill's enpass-to-csv](https://github.com/migvill/enp
 3. Convert your data
     * `node convert.js <YOUR ENPASS FILE>.json <NAME OF OUTPUT FILE>.csv`
     * Example: `node convert.js enpass.json 1password.csv`
-4. Import the generated CSV file into 1password. Or dashlane. Or Whatever.
+    * Script will output two files: `<NAME OF OUTPUT FILE>.csv` and `<NAME OF OUTPUT FILE>-notes.csv`. The first file has all login/password/uncategorized entries, and the second has all secure notes.
+4. Use the [mrc-converter-suite](https://1password.community/discussion/comment/494051/#Comment_494051) to convert these CSV files to .1pif files.
+    * `/usr/bin/perl convert.pl csv <NAME OF OUTPUT FILE>.csv -v --addfields --outfile <NAME OF OUTPUT FILE>`
+    * Run this command for both CSV outputs. Use different outfiles to prevent overwriting the previous conversion (or just convert and import to 1password one at a time).
+5. Import the resulting .1pif file into 1password.
 
-**Note: Only elements with the types "Login", "Password" and "Uncategorized" are converted. Whereby "Uncategorized" worked for me, but I can imagine that it can lead to problems for others here.**
+**Note: Only elements with the types "Login", "Password", "Uncategorized", or "Note" are converted.**
 
 *During the conversion, all unconverted elements are displayed in the console. These can then be maintained manually. 
 Optionally this log can be saved to a text file.*

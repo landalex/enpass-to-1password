@@ -11,15 +11,19 @@ try {
     let notConverted = 0;
     let converted = 0;
 
-    const csvOutput = ['title,website,username,password,notes,category'];
-    const fieldMapping = {
-        title: 'title',
-        url: 'website',
-        username: 'username',
-        password: 'password',
-        notes: 'notes',
-        category: 'category'
+    const loginFieldMapping = {
+        'website': 'Login URL',
+        'url': 'Login URL',
+        'e-mail': 'e-mail',
+        'email': 'e-mail',
+        'username': 'Login Username',
+        'password': 'Login Password',
+        'security question': 'security question', 
+        'security answer': 'security answer'
     };
+
+    const loginRows = [];
+    const noteRows = [];
 
     vault.items.forEach(item => {
         if (
@@ -27,49 +31,103 @@ try {
             || item.category === 'password'
             || item.category === 'uncategorized'
         ) {
-            const rowData = {
-                title: item.title,
-                website: '',
-                username: '',
-                password: '',
-                notes: item.note,
-                category: item.category
+            let rowData = {
+                'Title': item.title,
+                'Notes': '"' + item.note.replace(/["]+/g, '\'') + '"',
+                urls: []
             };
 
-            Object.keys(fieldMapping).forEach(type => {
-                const key = fieldMapping[type];
-                if (item.fields !== undefined) {
-                    item.fields.forEach(field => {
-                        if (field.type === type) {
-                            if (field.value && !rowData[key]) {
-                                if (field.value === 'url') {
-                                    rowData['website'] = '"' + field.value + '"'; 
-                                } else {
-                                    rowData[key] = '"' + field.value + '"';
-                                }
+            let fieldCount = {};
+
+            if (item.fields) {
+                item.fields.filter(field => {
+                    return field.value;
+                }).forEach(field => {
+                    let label = field.label.toLowerCase();
+                    if (label === 'website' || label === 'url') {
+                        rowData.urls.push('"' + field.value + '"')
+                    } else {
+                        let key = loginFieldMapping[label];
+                        if (key) {
+                            if (fieldCount[key]) {
+                                let count = fieldCount[key]
+                                fieldCount[key] = count + 1
+                                key = key + ' ' + count
+                            } else {
+                                fieldCount[key] = 1
                             }
+                            rowData[key] = '"' + field.value + '"';
                         }
-                    });
-                } 
-            });
+                    }
+                    
+                });
+            }
 
-            csvOutput.push(
-                Object.keys(rowData)
-                .map(key => rowData[key])
-                .join(','),
-            );
+            if (!rowData['Login Username'] && rowData['e-mail']) {
+                rowData['Login Username'] = rowData['e-mail'];
+            }
 
+            if (rowData.urls.length > 0) {
+                rowData["Login URL"] = rowData.urls[0];
+                let additionalUrls = '"' + rowData.urls.slice(1).map(url => url.replace(/['"]+/g, '')).join(';') + '"';
+                rowData["Additional URLs"] = additionalUrls;
+                delete rowData.urls;
+            }
+
+            loginRows.push(rowData);
             converted++
+        } else if (item.category === 'note') {
+            let rowData = {
+                'Title': item.title,
+                'Note': '"' + item.note.replace(/["]+/g, '\'') + '"'
+            }
+            noteRows.push(rowData);
         } else {
             notConverted++
             console.log('NOT CONVERTED: ', item.title, ' - ', item.category)
         }
     });
 
-    console.log('WRITING: ' + outputFile + '\n');
+    let loginFields = ['Title','Login Username','Login Password','Login URL','Additional URLs','Notes'];
+    loginRows.forEach(row => {
+        Object.keys(row).forEach(key => {
+            if (!loginFields.includes(key)) {
+                loginFields.push(key);
+            }
+        })
+    });
+
+    let loginOutput = [loginFields.join(',')];
+
+    let generateCsvRows = (row, fields, output) => {
+        let rowOutput = [];
+        fields.forEach(field => {
+            if (row[field]) {
+                rowOutput.push(row[field])
+            } else {
+                rowOutput.push("")
+            }
+        })
+        output.push(rowOutput.join(','))
+    };
+
+    loginRows.forEach(row => generateCsvRows(row, loginFields, loginOutput));
+
+    fs.writeFileSync(outputFile, loginOutput.join('\n'))
+    console.log('WRITING: ' + outputFile);
+
+    let noteFields = ['Title', 'Note'];
+    let noteOutput = [noteFields.join(',')];
+    noteRows.forEach(row => generateCsvRows(row, noteFields, noteOutput));
+
+    let filenameComponents = outputFile.split('.');
+    filenameComponents.splice(-1, 0, "-notes.");
+    let noteOutputFile = filenameComponents.join('');
+    fs.writeFileSync(noteOutputFile, noteOutput.join('\n'))
+    console.log('WRITING: ' + noteOutputFile + '\n');
+
     console.log('SUCCESSFUL: ', converted, ' items. ')
     console.log('FAILED: ', notConverted, ' items. ')
-    fs.writeFileSync(outputFile, csvOutput.join('\n'));
 } catch (err) {
     throw err;
 }
